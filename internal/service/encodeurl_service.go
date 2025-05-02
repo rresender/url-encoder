@@ -9,6 +9,8 @@ import (
 	"github.com/rresender/url-enconder/pkg/strategy"
 )
 
+const defaultLength = 4
+
 type EncodeURLService interface {
 	CreateEncodeURL(request *model.CreateEncodeURLRequest) (*model.EncodeURLResponse, error)
 	GetOriginalURL(encodeURL string) (string, error)
@@ -32,18 +34,25 @@ func NewEncodeURLService(repo repository.EncodeURLRepository, cache cache.Encode
 	}
 }
 
-const defaultLength = 4
-
 func (s *encodeURLService) CreateEncodeURL(request *model.CreateEncodeURLRequest) (*model.EncodeURLResponse, error) {
-	existing, err := s.repo.FindByOriginalURL(request.TenantID, request.OriginalURL)
-	if err == nil {
+	cacheKey := request.TenantID + "|" + request.OriginalURL
+
+	// Check cache first
+	if cached, ok := s.cache.Get(cacheKey); ok {
 		return &model.EncodeURLResponse{
-			EncodeURL:   existing.ID,
-			OriginalURL: existing.Original,
-			TenantID:    existing.TenantID,
+			EncodeURL:   cached.ID,
+			OriginalURL: cached.Original,
+			TenantID:    cached.TenantID,
 		}, nil
 	}
 
+	// Check repository for existing entry
+	existing, err := s.repo.FindByOriginalURL(request.TenantID, request.OriginalURL)
+	if err == nil {
+		return s.CacheAndRespond(existing, cacheKey)
+	}
+
+	// Determine encoding strategy
 	strategy, exists := s.strategies[request.Strategy]
 	if !exists {
 		return nil, errors.New("invalid encoding strategy")
@@ -64,16 +73,21 @@ func (s *encodeURLService) CreateEncodeURL(request *model.CreateEncodeURLRequest
 		TenantID: request.TenantID,
 	}
 
+	// Create new entry in repository
 	if err := s.repo.Create(entity); err != nil {
 		return nil, err
 	}
 
-	s.cache.Set(encodeURL, entity)
+	return s.CacheAndRespond(entity, cacheKey)
+}
 
+func (s *encodeURLService) CacheAndRespond(entity *model.EncodeURL, cacheKey string) (*model.EncodeURLResponse, error) {
+	s.cache.Set(entity.ID, entity)
+	s.cache.Set(cacheKey, entity)
 	return &model.EncodeURLResponse{
-		EncodeURL:   encodeURL,
-		OriginalURL: request.OriginalURL,
-		TenantID:    request.TenantID,
+		EncodeURL:   entity.ID,
+		OriginalURL: entity.Original,
+		TenantID:    entity.TenantID,
 	}, nil
 }
 
