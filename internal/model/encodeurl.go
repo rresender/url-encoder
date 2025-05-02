@@ -10,8 +10,11 @@ type EncodeURL struct {
 
 type CreateEncodeURLRequest struct {
 	OriginalURL string `json:"original_url" binding:"required,url"`
-	Strategy    string `json:"strategy" binding:"required,oneof=random sequential"`
+	Strategy    string `json:"strategy" binding:"required,oneof=random sequential tenant"`
 	TenantID    string `json:"tenant_id"`
+	Length      *int   `json:"length" binding:"omitempty,min=4,max=10"`
+	// Length is only used for the "tenant" strategy
+	// and is ignored for other strategies.
 }
 
 type EncodeURLResponse struct {

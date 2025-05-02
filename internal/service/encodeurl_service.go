@@ -22,15 +22,17 @@ type encodeURLService struct {
 
 func NewEncodeURLService(repo repository.EncodeURLRepository, cache cache.EncodeURLCache) EncodeURLService {
 	strategies := make(map[string]strategy.EncodingStrategy)
-	strategies["random"] = &strategy.RandomBase62Strategy{}
-	strategies["sequential"] = &strategy.SequentialBase62Strategy{}
-
+	strategies["random"] = &strategy.RandomBase36Strategy{}
+	strategies["sequential"] = strategy.NewSequentialBase36Strategy()
+	strategies["tenant"] = &strategy.TenantIDBase36Strategy{}
 	return &encodeURLService{
 		repo:       repo,
 		cache:      cache,
 		strategies: strategies,
 	}
 }
+
+const defaultLength = 4
 
 func (s *encodeURLService) CreateEncodeURL(request *model.CreateEncodeURLRequest) (*model.EncodeURLResponse, error) {
 	existing, err := s.repo.FindByOriginalURL(request.TenantID, request.OriginalURL)
@@ -47,11 +49,16 @@ func (s *encodeURLService) CreateEncodeURL(request *model.CreateEncodeURLRequest
 		return nil, errors.New("invalid encoding strategy")
 	}
 
-	id := strategy.GenerateID()
-	shortURL := strategy.Encode(id)
+	id := strategy.GenerateID(request.TenantID, request.OriginalURL)
+
+	length := defaultLength
+	if request.Length != nil {
+		length = *request.Length
+	}
+	encodeURL := strategy.Encode(id, length)
 
 	entity := &model.EncodeURL{
-		ID:       shortURL,
+		ID:       encodeURL,
 		Original: request.OriginalURL,
 		Strategy: request.Strategy,
 		TenantID: request.TenantID,
@@ -61,10 +68,10 @@ func (s *encodeURLService) CreateEncodeURL(request *model.CreateEncodeURLRequest
 		return nil, err
 	}
 
-	s.cache.Set(shortURL, entity)
+	s.cache.Set(encodeURL, entity)
 
 	return &model.EncodeURLResponse{
-		EncodeURL:   shortURL,
+		EncodeURL:   encodeURL,
 		OriginalURL: request.OriginalURL,
 		TenantID:    request.TenantID,
 	}, nil
