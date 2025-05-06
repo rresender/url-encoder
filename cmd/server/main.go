@@ -28,7 +28,7 @@ func main() {
 	db.AutoMigrate(&model.EncodeURL{})
 
 	repo := repository.NewEncodeURLRepository(db)
-	cache := cache.NewInMemoryCache()
+	cache := cache.NewInMemoryTTLCache(cfg.GetCacheTTL())
 	service := service.NewEncodeURLService(repo, cache)
 	controller := controller.NewEncodeURLController(service)
 

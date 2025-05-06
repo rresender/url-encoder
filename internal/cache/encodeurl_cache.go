@@ -3,6 +3,9 @@ package cache
 import (
 	"sync"
 
+	"time"
+
+	"github.com/jellydator/ttlcache/v3"
 	"github.com/rresender/url-enconder/internal/model"
 )
 
@@ -33,4 +36,27 @@ func (c *inMemoryCache) Get(key string) (*model.EncodeURL, bool) {
 	defer c.mutex.RUnlock()
 	val, ok := c.cache[key]
 	return val, ok
+}
+
+func NewInMemoryTTLCache(cacheTTL time.Duration) EncodeURLCache {
+	cache := ttlcache.New(
+		ttlcache.WithTTL[string, *model.EncodeURL](cacheTTL),
+	)
+	go cache.Start()
+	return &ttlCache{cache: cache}
+}
+
+type ttlCache struct {
+	cache *ttlcache.Cache[string, *model.EncodeURL]
+}
+
+func (c *ttlCache) Set(key string, value *model.EncodeURL) {
+	c.cache.Set(key, value, ttlcache.DefaultTTL)
+}
+
+func (c *ttlCache) Get(key string) (*model.EncodeURL, bool) {
+	if c.cache.Has(key) {
+		return c.cache.Get(key).Value(), true
+	}
+	return nil, false
 }
