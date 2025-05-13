@@ -13,7 +13,7 @@ type Config struct {
 
 func LoadConfig() *Config {
 	return &Config{
-		Port:        getEnv("PORT", "8080"),
+		Port:        getEnv("PORT", "8081"),
 		DatabaseURL: getEnv("DATABASE_URL", "file:encodeurl.db?cache=shared&mode=rwc"),
 		CacheTTL:    getEnv("CACHE_TTL", "30m"),
 	}

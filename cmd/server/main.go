@@ -43,7 +43,7 @@ func main() {
 		ctx.Next()
 	})
 
-	api := router.Group("/api/v1")
+	api := router.Group("encoder/api/v1")
 	{
 		api.POST("/encode", controller.CreateEncodeURL)
 	}
