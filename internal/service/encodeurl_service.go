@@ -29,6 +29,11 @@ func NewEncodeURLService(repo repository.EncodeURLRepository, cache cache.Encode
 	strategies := make(map[string]strategy.EncodingStrategy)
 	strategies["random"] = &strategy.RandomBase36Strategy{}
 	strategies["sequential"] = strategy.NewSequentialBase36Strategy()
+	strategies["sequential_db"] = &strategy.SequentialDBBase36Strategy{
+		Next: func() (uint64, error) {
+			return repo.NextSequence("global")
+		},
+	}
 	strategies["tenant"] = &strategy.TenantIDBase36Strategy{}
 	return &encodeURLService{
 		repo:       repo,

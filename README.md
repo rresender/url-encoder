@@ -33,6 +33,7 @@ Note: `length` is only used by the `tenant` strategy.
 Environment variables:
 
 - `PORT` (default: `8081`)
+- `DB_DRIVER` (default: `sqlite`; supported: `sqlite`, `postgres`)
 - `DATABASE_URL` (default: `file:encodeurl.db?cache=shared&mode=rwc`)
 - `CACHE_TTL` (default: `30m`)
 
@@ -44,6 +45,14 @@ curl -s -X POST "http://localhost:8081/encoder/api/v1/encode" \
   -H "Content-Type: application/json" \
   -H "X-Tenant-ID: tenant-a" \
   -d '{"original_url":"https://example.com","strategy":"tenant","length":6}'
+```
+
+DB-backed sequential (restart-safe):
+```bash
+curl -s -X POST "http://localhost:8081/encoder/api/v1/encode" \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: tenant-a" \
+  -d '{"original_url":"https://example.com","strategy":"sequential_db"}'
 ```
 
 Resolve:
