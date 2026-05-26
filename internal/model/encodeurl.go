@@ -2,9 +2,9 @@ package model
 
 type EncodeURL struct {
 	ID        string `json:"id" gorm:"primaryKey"`
-	Original  string `json:"original_url" gorm:"not null"`
+	Original  string `json:"original_url" gorm:"not null;uniqueIndex:idx_tenant_original"`
 	Strategy  string `json:"strategy" gorm:"not null"`
-	TenantID  string `json:"tenant_id" gorm:"not null;index:idx_tenant_url"`
+	TenantID  string `json:"tenant_id" gorm:"not null;index:idx_tenant_url;uniqueIndex:idx_tenant_original"`
 	CreatedAt int64  `json:"created_at" gorm:"autoCreateTime"`
 }
 

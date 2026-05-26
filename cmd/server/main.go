@@ -46,6 +46,7 @@ func main() {
 	api := router.Group("encoder/api/v1")
 	{
 		api.POST("/encode", controller.CreateEncodeURL)
+		api.GET("/resolve/:short_url", controller.ResolveEncodeURL)
 	}
 
 	router.Run(":" + cfg.Port)

@@ -1,9 +1,9 @@
 package strategy
 
 import (
+	crand "crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
-	"math/rand"
 	"sync"
 
 	"github.com/rresender/url-enconder/pkg/encoder"
@@ -17,7 +17,14 @@ type EncodingStrategy interface {
 type RandomBase36Strategy struct{}
 
 func (r *RandomBase36Strategy) GenerateID(_, _ string) uint64 {
-	return uint64(rand.Int63n(1_000_000_000))
+	var b [8]byte
+	if _, err := crand.Read(b[:]); err == nil {
+		return binary.BigEndian.Uint64(b[:])
+	}
+
+	// Extremely unlikely fallback: derive something deterministic from a hash.
+	hash := sha256.Sum256([]byte("url-encoder/random-fallback"))
+	return binary.BigEndian.Uint64(hash[:8])
 }
 
 func (r *RandomBase36Strategy) Encode(id uint64, _ int) string {

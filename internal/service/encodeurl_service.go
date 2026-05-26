@@ -7,9 +7,12 @@ import (
 	"github.com/rresender/url-enconder/internal/model"
 	"github.com/rresender/url-enconder/internal/repository"
 	"github.com/rresender/url-enconder/pkg/strategy"
+	"gorm.io/gorm"
 )
 
 const defaultLength = 4
+
+var ErrInvalidEncodingStrategy = errors.New("invalid encoding strategy")
 
 type EncodeURLService interface {
 	CreateEncodeURL(request *model.CreateEncodeURLRequest) (*model.EncodeURLResponse, error)
@@ -51,34 +54,55 @@ func (s *encodeURLService) CreateEncodeURL(request *model.CreateEncodeURLRequest
 	if err == nil {
 		return s.CacheAndRespond(existing, cacheKey)
 	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
 
 	// Determine encoding strategy
 	strategy, exists := s.strategies[request.Strategy]
 	if !exists {
-		return nil, errors.New("invalid encoding strategy")
+		return nil, ErrInvalidEncodingStrategy
 	}
-
-	id := strategy.GenerateID(request.TenantID, request.OriginalURL)
 
 	length := defaultLength
 	if request.Length != nil {
 		length = *request.Length
 	}
-	encodeURL := strategy.Encode(id, length)
 
-	entity := &model.EncodeURL{
-		ID:       encodeURL,
-		Original: request.OriginalURL,
-		Strategy: request.Strategy,
-		TenantID: request.TenantID,
+	// Create new entry in repository.
+	//
+	// For "random" and "sequential", multiple concurrent requests can race and attempt
+	// to create the same logical mapping. We rely on the DB uniqueness constraint on
+	// (tenant_id, original) and retry with a different generated ID if needed.
+	var lastErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		id := strategy.GenerateID(request.TenantID, request.OriginalURL)
+		encodeURL := strategy.Encode(id, length)
+
+		entity := &model.EncodeURL{
+			ID:       encodeURL,
+			Original: request.OriginalURL,
+			Strategy: request.Strategy,
+			TenantID: request.TenantID,
+		}
+
+		if err := s.repo.Create(entity); err == nil {
+			return s.CacheAndRespond(entity, cacheKey)
+		} else {
+			lastErr = err
+
+			// If another request created the mapping, reuse it.
+			existing, findErr := s.repo.FindByOriginalURL(request.TenantID, request.OriginalURL)
+			if findErr == nil {
+				return s.CacheAndRespond(existing, cacheKey)
+			}
+			if !errors.Is(findErr, gorm.ErrRecordNotFound) {
+				return nil, findErr
+			}
+		}
 	}
 
-	// Create new entry in repository
-	if err := s.repo.Create(entity); err != nil {
-		return nil, err
-	}
-
-	return s.CacheAndRespond(entity, cacheKey)
+	return nil, lastErr
 }
 
 func (s *encodeURLService) CacheAndRespond(entity *model.EncodeURL, cacheKey string) (*model.EncodeURLResponse, error) {

@@ -1,14 +1,52 @@
 # url-encoder
 
-A versatile and pluggable encoding service tailored for URL shortening systems. It supports dynamic encoding strategies, including Base36, Base62, and custom algorithms, ensuring adaptability to various use cases. Designed with flexibility at its core, the service leverages the Strategy Pattern to enable seamless integration and effortless extensibility.
+Simple, pluggable URL encoding/decoding service for URL-shortening-style systems.
 
-This service is ideal for developers looking to implement scalable and efficient URL shortening solutions. It provides a clean and modular architecture, making it easy to add new encoding strategies or modify existing ones. With built-in support for dependency injection, the service ensures that components remain decoupled and testable.
+It exposes HTTP endpoints and uses the Strategy Pattern to generate short codes. The current implementation ships with a Base36 encoder and these ID strategies:
 
-Key features include:
+- `random`: generates a random uint64 and Base36-encodes it
+- `sequential`: increments an in-memory counter and Base36-encodes it
+- `tenant`: deterministic per `(tenant_id, original_url)` using a SHA-256 hash, encoded with a caller-provided minimum length
 
-- **Dynamic Encoding Strategies**: Switch between predefined algorithms or plug in your own custom logic.
-- **Scalability**: Optimized for high-performance encoding in distributed systems.
-- **Extensibility**: Easily extend the service to meet unique business requirements.
-- **Testability**: Built with unit testing in mind, ensuring robust and reliable implementations.
+Note: `length` is only used by the `tenant` strategy.
 
-Whether you're building a URL shortener for personal projects or enterprise-grade applications, this encoding service provides the tools and flexibility you need to succeed.
+## API
+
+- `POST /encoder/api/v1/encode`
+  - Request JSON:
+    - `original_url` (required, URL)
+    - `strategy` (required: `random | sequential | tenant`)
+    - `tenant_id` (optional if `X-Tenant-ID` header is set)
+    - `length` (optional, integer 4..10; only used for `tenant`)
+  - Response JSON:
+    - `short_url`
+    - `original_url`
+    - `tenant_id`
+
+- `GET /encoder/api/v1/resolve/:short_url`
+  - Response JSON:
+    - `short_url`
+    - `original_url`
+
+## Configuration
+
+Environment variables:
+
+- `PORT` (default: `8081`)
+- `DATABASE_URL` (default: `file:encodeurl.db?cache=shared&mode=rwc`)
+- `CACHE_TTL` (default: `30m`)
+
+## Examples
+
+Encode:
+```bash
+curl -s -X POST "http://localhost:8081/encoder/api/v1/encode" \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: tenant-a" \
+  -d '{"original_url":"https://example.com","strategy":"tenant","length":6}'
+```
+
+Resolve:
+```bash
+curl -s "http://localhost:8081/encoder/api/v1/resolve/{short_url}"
+```

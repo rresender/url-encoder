@@ -30,7 +30,14 @@ func Base36Encode(value uint64) string {
 func DynamicLengthEncode(num uint64, minLength int) string {
 	encoded := Base36Encode(num)
 
-	if len(encoded) <= minLength {
+	// Ensure the output respects the requested minimum length.
+	// If the value is shorter, we left-pad with the "zero" alphabet char.
+	if len(encoded) < minLength {
+		padLen := minLength - len(encoded)
+		padChar := alphabet[0:1] // "a" (represents 0)
+		for i := 0; i < padLen; i++ {
+			encoded = padChar + encoded
+		}
 		return encoded
 	}
 

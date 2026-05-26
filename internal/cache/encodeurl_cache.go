@@ -43,15 +43,16 @@ func NewInMemoryTTLCache(cacheTTL time.Duration) EncodeURLCache {
 		ttlcache.WithTTL[string, *model.EncodeURL](cacheTTL),
 	)
 	go cache.Start()
-	return &ttlCache{cache: cache}
+	return &ttlCache{cache: cache, ttl: cacheTTL}
 }
 
 type ttlCache struct {
 	cache *ttlcache.Cache[string, *model.EncodeURL]
+	ttl   time.Duration
 }
 
 func (c *ttlCache) Set(key string, value *model.EncodeURL) {
-	c.cache.Set(key, value, ttlcache.DefaultTTL)
+	c.cache.Set(key, value, c.ttl)
 }
 
 func (c *ttlCache) Get(key string) (*model.EncodeURL, bool) {

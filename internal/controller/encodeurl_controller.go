@@ -1,11 +1,13 @@
 package controller
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rresender/url-enconder/internal/model"
 	"github.com/rresender/url-enconder/internal/service"
+	"gorm.io/gorm"
 )
 
 type EncodeURLController struct {
@@ -34,9 +36,36 @@ func (c *EncodeURLController) CreateEncodeURL(ctx *gin.Context) {
 
 	response, err := c.service.CreateEncodeURL(&request)
 	if err != nil {
+		if errors.Is(err, service.ErrInvalidEncodingStrategy) {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, response)
+	ctx.JSON(http.StatusCreated, response)
+}
+
+func (c *EncodeURLController) ResolveEncodeURL(ctx *gin.Context) {
+	shortURL := ctx.Param("short_url")
+	if shortURL == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "short_url is required"})
+		return
+	}
+
+	originalURL, err := c.service.GetOriginalURL(shortURL)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"short_url":    shortURL,
+		"original_url": originalURL,
+	})
 }
