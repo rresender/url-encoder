@@ -10,21 +10,18 @@ import (
 )
 
 type EncodingStrategy interface {
-	GenerateID(tenantID, originalURL string) uint64
+	GenerateID(tenantID, originalURL string) (uint64, error)
 	Encode(id uint64, length int) string
 }
 
 type RandomBase36Strategy struct{}
 
-func (r *RandomBase36Strategy) GenerateID(_, _ string) uint64 {
+func (r *RandomBase36Strategy) GenerateID(_, _ string) (uint64, error) {
 	var b [8]byte
-	if _, err := crand.Read(b[:]); err == nil {
-		return binary.BigEndian.Uint64(b[:])
+	if _, err := crand.Read(b[:]); err != nil {
+		return 0, err
 	}
-
-	// Extremely unlikely fallback: derive something deterministic from a hash.
-	hash := sha256.Sum256([]byte("url-encoder/random-fallback"))
-	return binary.BigEndian.Uint64(hash[:8])
+	return binary.BigEndian.Uint64(b[:]), nil
 }
 
 func (r *RandomBase36Strategy) Encode(id uint64, _ int) string {
@@ -42,11 +39,11 @@ func NewSequentialBase36Strategy() *SequentialBase36Strategy {
 	}
 }
 
-func (s *SequentialBase36Strategy) GenerateID(_, _ string) uint64 {
+func (s *SequentialBase36Strategy) GenerateID(_, _ string) (uint64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.counter++
-	return s.counter
+	return s.counter, nil
 }
 
 func (s *SequentialBase36Strategy) Encode(id uint64, _ int) string {
@@ -56,9 +53,9 @@ func (s *SequentialBase36Strategy) Encode(id uint64, _ int) string {
 type TenantIDBase36Strategy struct {
 }
 
-func (t *TenantIDBase36Strategy) GenerateID(tenantID, originalURL string) uint64 {
+func (t *TenantIDBase36Strategy) GenerateID(tenantID, originalURL string) (uint64, error) {
 	hash := sha256.Sum256([]byte(tenantID + "|" + originalURL))
-	return binary.BigEndian.Uint64(hash[:8])
+	return binary.BigEndian.Uint64(hash[:8]), nil
 }
 
 func (t *TenantIDBase36Strategy) Encode(id uint64, length int) string {

@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rresender/url-enconder/internal/model"
 	"github.com/rresender/url-enconder/internal/service"
-	"gorm.io/gorm"
 )
 
 type EncodeURLController struct {
@@ -56,7 +55,7 @@ func (c *EncodeURLController) ResolveEncodeURL(ctx *gin.Context) {
 
 	originalURL, err := c.service.GetOriginalURL(shortURL)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, service.ErrNotFound) {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}

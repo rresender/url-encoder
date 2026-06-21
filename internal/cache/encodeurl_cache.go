@@ -56,8 +56,9 @@ func (c *ttlCache) Set(key string, value *model.EncodeURL) {
 }
 
 func (c *ttlCache) Get(key string) (*model.EncodeURL, bool) {
-	if c.cache.Has(key) {
-		return c.cache.Get(key).Value(), true
+	item := c.cache.Get(key)
+	if item == nil {
+		return nil, false
 	}
-	return nil, false
+	return item.Value(), true
 }

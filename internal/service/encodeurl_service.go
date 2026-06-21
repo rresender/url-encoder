@@ -13,6 +13,7 @@ import (
 const defaultLength = 4
 
 var ErrInvalidEncodingStrategy = errors.New("invalid encoding strategy")
+var ErrNotFound = errors.New("not found")
 
 type EncodeURLService interface {
 	CreateEncodeURL(request *model.CreateEncodeURLRequest) (*model.EncodeURLResponse, error)
@@ -81,7 +82,10 @@ func (s *encodeURLService) CreateEncodeURL(request *model.CreateEncodeURLRequest
 	// (tenant_id, original) and retry with a different generated ID if needed.
 	var lastErr error
 	for attempt := 0; attempt < 5; attempt++ {
-		id := strategy.GenerateID(request.TenantID, request.OriginalURL)
+		id, err := strategy.GenerateID(request.TenantID, request.OriginalURL)
+		if err != nil {
+			return nil, err
+		}
 		encodeURL := strategy.Encode(id, length)
 
 		entity := &model.EncodeURL{
@@ -125,13 +129,14 @@ func (s *encodeURLService) GetOriginalURL(encodeURL string) (string, error) {
 		return cached.Original, nil
 	}
 
-	model, err := s.repo.FindByID(encodeURL)
-
+	m, err := s.repo.FindByID(encodeURL)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", ErrNotFound
+		}
 		return "", err
 	}
 
-	s.cache.Set(encodeURL, model)
-
-	return model.Original, nil
+	s.cache.Set(encodeURL, m)
+	return m.Original, nil
 }

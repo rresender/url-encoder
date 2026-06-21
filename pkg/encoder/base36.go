@@ -26,47 +26,19 @@ func Base36Encode(value uint64) string {
 	return string(encoded)
 }
 
-// DynamicLengthEncode encodes a number into a base36 string with a minimum length.
+// DynamicLengthEncode encodes a number into a base36 string of exactly minLength characters.
+// It masks the input into the range [0, 36^minLength) so the output is always exactly
+// minLength characters (left-padded with 'a'), making the mapping injective within that range.
 func DynamicLengthEncode(num uint64, minLength int) string {
-	encoded := Base36Encode(num)
-
-	// Ensure the output respects the requested minimum length.
-	// If the value is shorter, we left-pad with the "zero" alphabet char.
-	if len(encoded) < minLength {
-		padLen := minLength - len(encoded)
-		padChar := alphabet[0:1] // "a" (represents 0)
-		for i := 0; i < padLen; i++ {
-			encoded = padChar + encoded
-		}
-		return encoded
+	maxVal := uint64(1)
+	for i := 0; i < minLength; i++ {
+		maxVal *= length
 	}
+	masked := num % maxVal
 
-	// Calculate base size for each part (prefix, middle, suffix)
-	partSize := minLength / 3
-	remaining := minLength % 3
-
-	// Distribute any remaining characters
-	prefixSize := partSize
-	middleSize := partSize
-	suffixSize := partSize
-
-	switch remaining {
-	case 1:
-		middleSize++ // Give extra character to middle
-	case 2:
-		prefixSize++
-		suffixSize++
+	encoded := Base36Encode(masked)
+	for len(encoded) < minLength {
+		encoded = string(alphabet[0]) + encoded
 	}
-
-	// Get prefix (first N characters)
-	prefix := encoded[:prefixSize]
-
-	// Get suffix (last N characters)
-	suffix := encoded[len(encoded)-suffixSize:]
-
-	// Get middle (center characters)
-	middleStart := (len(encoded) - middleSize) / 2
-	middle := encoded[middleStart : middleStart+middleSize]
-
-	return prefix + middle + suffix
+	return encoded
 }

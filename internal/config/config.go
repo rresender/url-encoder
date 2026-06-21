@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"os"
 	"time"
 )
@@ -29,6 +30,10 @@ func getEnv(key, defaultValue string) string {
 }
 
 func (c *Config) GetCacheTTL() time.Duration {
-	timeVal, _ := time.ParseDuration(c.CacheTTL)
-	return timeVal
+	d, err := time.ParseDuration(c.CacheTTL)
+	if err != nil || d <= 0 {
+		log.Printf("invalid CACHE_TTL %q, using default 30m: %v", c.CacheTTL, err)
+		return 30 * time.Minute
+	}
+	return d
 }
